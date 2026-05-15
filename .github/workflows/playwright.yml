@@ -1,0 +1,84 @@
+name: Playwright Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: playwright-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Playwright (Ubuntu, all browsers)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    env:
+      ENV: qa
+      # Test creds for SauceDemo's public demo — safe to keep here.
+      # For real apps move these to repo secrets and use `${{ secrets.* }}`.
+      APP_USERNAME: standard_user
+      APP_PASSWORD: secret_sauce
+      CRYPTO_KEY: ci-not-a-real-secret
+      CI: 'true'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install npm deps
+        run: npm ci
+
+      - name: Install Playwright browsers (+ real Chrome channel + OS deps)
+        run: |
+          npx playwright install --with-deps chromium firefox webkit
+          npx playwright install chrome
+
+      - name: Run gating tests
+        # --grep-invert @visual excludes the pixel-diff tests whose baselines
+        # were generated on macOS; they would fail on Linux without
+        # Linux-specific baselines. The Dockerfile's CMD already excludes
+        # @quarantine so we don't need it again here.
+        run: npx playwright test --grep-invert @visual --grep-invert @quarantine
+
+      - name: Upload custom HTML report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: custom-report
+          path: reports/clean/
+          retention-days: 14
+
+      - name: Upload Playwright HTML report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-html
+          path: reports/html/
+          retention-days: 14
+
+      - name: Upload blob report (for merge)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: blob-report
+          path: reports/blob/
+          retention-days: 7
+
+      - name: Upload monocart report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: monocart-report
+          path: reports/monocart/
+          retention-days: 14
