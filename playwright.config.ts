@@ -31,6 +31,7 @@ export default defineConfig({
   outputDir: artifactDir,
 
   globalSetup: require.resolve('./src/setup/global.setup.ts'),
+  globalTeardown: require.resolve('./src/setup/global.teardown.ts'),
 
   reporter: [
     ['list'],
