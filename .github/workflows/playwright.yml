@@ -45,11 +45,10 @@ jobs:
           npx playwright install chrome
 
       - name: Run gating tests
-        # --grep-invert @visual excludes the pixel-diff tests whose baselines
-        # were generated on macOS; they would fail on Linux without
-        # Linux-specific baselines. The Dockerfile's CMD already excludes
-        # @quarantine so we don't need it again here.
-        run: npx playwright test --grep-invert @visual --grep-invert @quarantine
+        # Single --grep-invert with a regex — passing the flag twice would
+        # mean only the last value is applied. Excludes pixel-diff tests
+        # (their baselines are macOS-specific) and any quarantined tests.
+        run: npx playwright test --grep-invert "@visual|@quarantine"
 
       - name: Upload custom HTML report
         if: always()
