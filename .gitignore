@@ -1,0 +1,35 @@
+# Dependencies & build
+node_modules/
+dist/
+
+# Secrets
+.env
+.env.*
+!.env.example
+
+# Auth state (recreated on each run by the setup project)
+.auth/
+
+# Test runtime output
+reports/
+test-results/
+playwright-report/
+blob-report/
+
+# Legacy artifacts (in case anyone has them locally)
+allure-results/
+allure-report/
+html-report/
+html-report.zip
+logs/
+Downloads/
+
+# IDE / OS noise
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Sonar
+.scannerwork/

@@ -1,0 +1,57 @@
+{
+  "name": "playwright-framework",
+  "version": "2.0.0",
+  "description": "Production-grade Playwright + TypeScript framework with auth state caching, schema-validated APIs, sharded parallel execution, and Docker/Jenkins CI.",
+  "private": true,
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "scripts": {
+    "test": "playwright test",
+    "test:ui": "playwright test --project=chromium --project=firefox --project=webkit",
+    "test:api": "playwright test --project=api",
+    "test:smoke": "playwright test --grep @smoke --grep-invert @quarantine",
+    "test:gating": "playwright test --grep-invert @quarantine",
+    "test:quarantine": "playwright test --grep @quarantine",
+    "test:headed": "playwright test --headed --project=chromium",
+    "test:debug": "playwright test --debug",
+    "test:codegen": "playwright codegen",
+    "shard": "playwright test --shard=${SHARD_INDEX:-1}/${SHARD_TOTAL:-1}",
+    "report:html": "playwright show-report reports/html/shard-local",
+    "report:merge": "playwright merge-reports --reporter=html ./reports/blob",
+    "report:open": "open ./reports/clean/shard-local/index.html",
+    "lint": "eslint . --ext .ts",
+    "lint:fix": "eslint . --ext .ts --fix",
+    "typecheck": "tsc --noEmit",
+    "format": "prettier --write \"src/**/*.ts\" \"tests/**/*.ts\" \"playwright.config.ts\"",
+    "clean": "node -e \"require('fs').rmSync('reports',{recursive:true,force:true});require('fs').rmSync('.auth',{recursive:true,force:true});require('fs').rmSync('test-results',{recursive:true,force:true});\"",
+    "crypto:encrypt": "node -e \"require('dotenv').config();const {encrypt}=require('./src/utils/crypto');console.log(encrypt(process.argv[1]))\"",
+    "docker:build": "docker build -f docker/Dockerfile -t playwright-framework:latest .",
+    "docker:test": "docker compose -f docker/docker-compose.yml up --abort-on-container-exit --exit-code-from shard-1",
+    "docker:down": "docker compose -f docker/docker-compose.yml down -v"
+  },
+  "dependencies": {
+    "@axe-core/playwright": "^4.11.3",
+    "@playwright/test": "^1.60.0",
+    "crypto-js": "^4.2.0",
+    "dotenv": "^17.0.0",
+    "exceljs": "^4.4.0",
+    "monocart-reporter": "^2.9.0",
+    "pdfjs-dist": "^4.10.38",
+    "pg": "^8.18.0",
+    "winston": "^3.19.0",
+    "winston-daily-rotate-file": "^5.0.0",
+    "zod": "^3.24.0"
+  },
+  "devDependencies": {
+    "@types/crypto-js": "^4.2.2",
+    "@types/node": "^20.17.0",
+    "@types/pg": "^8.11.10",
+    "@typescript-eslint/eslint-plugin": "^8.54.0",
+    "@typescript-eslint/parser": "^8.54.0",
+    "eslint": "^9.39.2",
+    "eslint-plugin-import": "^2.32.0",
+    "prettier": "^3.4.0",
+    "typescript": "^5.9.3"
+  }
+}

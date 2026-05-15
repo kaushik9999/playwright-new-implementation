@@ -1,0 +1,89 @@
+# docker-compose for sharded parallel test execution.
+#
+# Each `shard-N` service runs the full test suite restricted to its slice
+# (`--shard=N/M`). All shards write their per-shard report into the host's
+# `reports/` directory; the `merge` service runs after the shards exit and
+# combines blob reports into a single monocart + html report.
+#
+# Usage:
+#   docker compose -f docker/docker-compose.yml up --abort-on-container-exit \
+#     --exit-code-from shard-1
+#
+# Scale shards by adjusting SHARD_TOTAL and adding/removing shard services.
+
+services:
+  shard-1: &shard
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    image: playwright-framework:latest
+    environment:
+      CI: "true"
+      ENV: ${ENV:-qa}
+      SHARD_INDEX: 1
+      SHARD_TOTAL: 4
+      APP_USERNAME: ${APP_USERNAME}
+      APP_PASSWORD: ${APP_PASSWORD}
+      CRYPTO_KEY: ${CRYPTO_KEY}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    volumes:
+      - ../reports:/work/reports
+    # No external services to wait on; remove this if you add a stub API.
+    # Each shard exits independently; the `merge` service runs after.
+
+  shard-2:
+    <<: *shard
+    environment:
+      CI: "true"
+      ENV: ${ENV:-qa}
+      SHARD_INDEX: 2
+      SHARD_TOTAL: 4
+      APP_USERNAME: ${APP_USERNAME}
+      APP_PASSWORD: ${APP_PASSWORD}
+      CRYPTO_KEY: ${CRYPTO_KEY}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+
+  shard-3:
+    <<: *shard
+    environment:
+      CI: "true"
+      ENV: ${ENV:-qa}
+      SHARD_INDEX: 3
+      SHARD_TOTAL: 4
+      APP_USERNAME: ${APP_USERNAME}
+      APP_PASSWORD: ${APP_PASSWORD}
+      CRYPTO_KEY: ${CRYPTO_KEY}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+
+  shard-4:
+    <<: *shard
+    environment:
+      CI: "true"
+      ENV: ${ENV:-qa}
+      SHARD_INDEX: 4
+      SHARD_TOTAL: 4
+      APP_USERNAME: ${APP_USERNAME}
+      APP_PASSWORD: ${APP_PASSWORD}
+      CRYPTO_KEY: ${CRYPTO_KEY}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+
+  merge:
+    image: playwright-framework:latest
+    depends_on:
+      shard-1:
+        condition: service_completed_successfully
+      shard-2:
+        condition: service_completed_successfully
+      shard-3:
+        condition: service_completed_successfully
+      shard-4:
+        condition: service_completed_successfully
+    volumes:
+      - ../reports:/work/reports
+    command:
+      - sh
+      - -c
+      - |
+        npx playwright merge-reports \
+          --reporter=html,monocart-reporter \
+          ./reports/blob

@@ -1,0 +1,7 @@
+username,expectedOutcome,notes
+standard_user,login_success,baseline user
+problem_user,login_success,page renders incorrectly but login itself works
+performance_glitch_user,login_success,slow load but login succeeds
+error_user,login_success,errors appear on subsequent flows
+visual_user,login_success,visual-only differences
+locked_out_user,shows_lockout_banner,server-side block

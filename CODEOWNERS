@@ -1,0 +1,39 @@
+# Test ownership routing. Per-line glob → GitHub team(s) that own those tests.
+# When a path matches multiple lines, the LAST matching line wins.
+# Replace the placeholder team names with your real GitHub teams.
+
+# Default owner — anything not matched below.
+*                                       @qa-leads
+
+# Per-module test ownership.
+tests/ui/auth/                          @platform-auth-team
+src/pages/auth/                         @platform-auth-team
+src/fixtures/auth/                      @platform-auth-team
+src/data/auth/                          @platform-auth-team
+
+tests/ui/catalog/                       @catalog-team
+src/pages/catalog/                      @catalog-team
+src/fixtures/catalog/                   @catalog-team
+src/data/catalog/                       @catalog-team
+
+# cart + checkout share an owner here; split when teams diverge.
+tests/ui/cross-module/                  @qa-leads @shopping-team
+src/pages/cart/                         @shopping-team
+src/pages/checkout/                     @shopping-team
+src/fixtures/cart/                      @shopping-team
+src/fixtures/checkout/                  @shopping-team
+
+# API + DB layers.
+tests/api/                              @backend-team
+src/api/                                @backend-team
+tests/db/                               @backend-team
+src/db/                                 @backend-team
+
+# Infrastructure — owned by the QA platform team.
+playwright.config.ts                    @qa-platform
+src/reporter/                           @qa-platform
+src/setup/                              @qa-platform
+src/fixtures/base.ts                    @qa-platform
+src/fixtures/preconditions/             @qa-platform
+docker/                                 @qa-platform
+ci/                                     @qa-platform

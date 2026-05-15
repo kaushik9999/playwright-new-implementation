@@ -1,0 +1,4 @@
+# Placeholder so this directory ships in git even before specs exist.
+# DB integration tests live here. They use the worker-scoped `dbClient`
+# fixture from `@fixtures/base` and run via the `db` Playwright project
+# (add it to `playwright.config.ts` when you ship the first spec).

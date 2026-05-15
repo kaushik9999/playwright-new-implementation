@@ -1,0 +1,134 @@
+// Jenkins pipeline for sharded Playwright execution via docker-compose.
+//
+// Required Jenkins credentials (configure in Jenkins → Manage Credentials):
+//   - playwright-app-username   (Secret text)
+//   - playwright-app-password   (Secret text)
+//   - playwright-crypto-key     (Secret text)
+//   - playwright-slack-webhook  (Secret text) — optional; if missing,
+//                                notifications are silently skipped.
+//
+// Optional parameters:
+//   - ENV            (qa|dev|staging)  — environment to test against
+//   - SHARD_TOTAL    (integer)         — number of parallel containers
+//
+// The Jenkins agent must have Docker + docker-compose available.
+
+pipeline {
+  agent any
+
+  options {
+    timestamps()
+    ansiColor('xterm')
+    timeout(time: 60, unit: 'MINUTES')
+    buildDiscarder(logRotator(numToKeepStr: '30', artifactNumToKeepStr: '10'))
+  }
+
+  parameters {
+    choice(
+      name: 'ENV',
+      choices: ['qa', 'dev', 'staging'],
+      description: 'Target environment'
+    )
+    string(
+      name: 'SHARD_TOTAL',
+      defaultValue: '4',
+      description: 'Number of parallel shards (must match docker-compose.yml services)'
+    )
+  }
+
+  environment {
+    APP_USERNAME = credentials('playwright-app-username')
+    APP_PASSWORD = credentials('playwright-app-password')
+    CRYPTO_KEY   = credentials('playwright-crypto-key')
+    ENV          = "${params.ENV}"
+    SHARD_TOTAL  = "${params.SHARD_TOTAL}"
+  }
+
+  stages {
+    stage('Checkout') {
+      steps {
+        checkout scm
+      }
+    }
+
+    stage('Build image') {
+      steps {
+        sh 'docker build -f docker/Dockerfile -t playwright-framework:${BUILD_NUMBER} .'
+        sh 'docker tag playwright-framework:${BUILD_NUMBER} playwright-framework:latest'
+      }
+    }
+
+    stage('Run sharded tests') {
+      steps {
+        // --abort-on-container-exit is intentionally NOT set: we want every
+        // shard to finish so the merge step has a complete picture, even if
+        // one shard failed.
+        sh '''
+          mkdir -p reports
+          docker compose -f docker/docker-compose.yml up \
+            --exit-code-from merge \
+            --no-color
+        '''
+      }
+    }
+  }
+
+  post {
+    always {
+      // Publish merged reports as Jenkins artifacts.
+      archiveArtifacts artifacts: 'reports/**/*', allowEmptyArchive: true, fingerprint: false
+
+      // Surface the monocart report as a Jenkins-published HTML artifact.
+      publishHTML(target: [
+        allowMissing: true,
+        alwaysLinkToLastBuild: true,
+        keepAll: true,
+        reportDir: 'reports/monocart',
+        reportFiles: 'index.html',
+        reportName: 'Playwright Report (Monocart)'
+      ])
+
+      // Tear down compose state and dangling volumes.
+      sh 'docker compose -f docker/docker-compose.yml down -v --remove-orphans || true'
+
+      // Slack notification. Uses a generic webhook + curl so this works
+      // without the Slack plugin installed. Failure to notify never fails
+      // the build (try/catch + `|| true`).
+      script {
+        try {
+          withCredentials([string(credentialsId: 'playwright-slack-webhook', variable: 'SLACK_WEBHOOK')]) {
+            def result = currentBuild.currentResult ?: 'SUCCESS'
+            def color = result == 'SUCCESS' ? '#36a64f' : (result == 'UNSTABLE' ? '#ffae42' : '#d00000')
+            def emoji = result == 'SUCCESS' ? ':white_check_mark:' : ':x:'
+            def reportUrl = "${env.BUILD_URL}Playwright_20Report_20_28Monocart_29/"
+            def payload = """{
+              "attachments": [{
+                "color": "${color}",
+                "title": "${emoji} ${env.JOB_NAME} #${env.BUILD_NUMBER} — ${result}",
+                "title_link": "${env.BUILD_URL}",
+                "fields": [
+                  { "title": "Environment", "value": "${params.ENV}", "short": true },
+                  { "title": "Shards", "value": "${params.SHARD_TOTAL}", "short": true },
+                  { "title": "Report", "value": "<${reportUrl}|Open Monocart report>", "short": false }
+                ]
+              }]
+            }"""
+            sh """
+              curl -sS -X POST -H 'Content-Type: application/json' \
+                --data '${payload.replaceAll("\\s+", " ")}' \
+                "\$SLACK_WEBHOOK" || true
+            """
+          }
+        } catch (e) {
+          echo "Slack notification skipped: ${e.message}"
+        }
+      }
+    }
+    success {
+      echo "Tests passed — see Playwright Report (Monocart) link on the build page."
+    }
+    failure {
+      echo "Tests failed — open the Monocart report for shard-level drill-down."
+    }
+  }
+}
